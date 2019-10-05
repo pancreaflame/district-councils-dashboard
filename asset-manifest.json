@@ -1,13 +1,13 @@
 {
-  "main.css": "/district-councils-dashboard/static/css/main.25af8312.chunk.css",
-  "main.js": "/district-councils-dashboard/static/js/main.43587984.chunk.js",
-  "main.js.map": "/district-councils-dashboard/static/js/main.43587984.chunk.js.map",
-  "runtime~main.js": "/district-councils-dashboard/static/js/runtime~main.8cf94a55.js",
-  "runtime~main.js.map": "/district-councils-dashboard/static/js/runtime~main.8cf94a55.js.map",
-  "static/js/2.8b1b016b.chunk.js": "/district-councils-dashboard/static/js/2.8b1b016b.chunk.js",
-  "static/js/2.8b1b016b.chunk.js.map": "/district-councils-dashboard/static/js/2.8b1b016b.chunk.js.map",
-  "index.html": "/district-councils-dashboard/index.html",
-  "precache-manifest.024762bbe2a86f5df96c4f069ea70118.js": "/district-councils-dashboard/precache-manifest.024762bbe2a86f5df96c4f069ea70118.js",
-  "service-worker.js": "/district-councils-dashboard/service-worker.js",
-  "static/css/main.25af8312.chunk.css.map": "/district-councils-dashboard/static/css/main.25af8312.chunk.css.map"
+  "main.css": "/static/css/main.25af8312.chunk.css",
+  "main.js": "/static/js/main.257d9aa8.chunk.js",
+  "main.js.map": "/static/js/main.257d9aa8.chunk.js.map",
+  "runtime~main.js": "/static/js/runtime~main.a8a9905a.js",
+  "runtime~main.js.map": "/static/js/runtime~main.a8a9905a.js.map",
+  "static/js/2.01706845.chunk.js": "/static/js/2.01706845.chunk.js",
+  "static/js/2.01706845.chunk.js.map": "/static/js/2.01706845.chunk.js.map",
+  "index.html": "/index.html",
+  "precache-manifest.a827e567673a6ad34fc49ac4ce26fb98.js": "/precache-manifest.a827e567673a6ad34fc49ac4ce26fb98.js",
+  "service-worker.js": "/service-worker.js",
+  "static/css/main.25af8312.chunk.css.map": "/static/css/main.25af8312.chunk.css.map"
 }
