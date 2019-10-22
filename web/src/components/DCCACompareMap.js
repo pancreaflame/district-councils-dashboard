@@ -203,6 +203,37 @@ class DCCACompareMap extends Component {
     selectByHover.on('select', this.mapHover)
   }
 
+  shouldComponentUpdate(nextProps, nextState) {
+    // Update Map highlight when CACODE changes
+    if (this.state.map) {
+      // Fit to feature
+      const features = this.featureSource.getFeatures()
+      for (let i = 0; i < features.length; i++) {
+        if (features[i].getProperties().CACODE === nextProps.code) {
+          const extent = features[i].getGeometry().getExtent()
+          this.state.map.getView().fit(extent, {
+            size: this.state.map.getSize(),
+            padding: [10, 10, 10, 10],
+          })
+
+          this.highlightFeature(features[i])
+
+          const loadedResult = {
+            centroid: features[i]
+              .getGeometry()
+              .getInteriorPoint()
+              .getCoordinates(),
+          }
+
+          break
+        }
+      }
+    }
+
+    // Only re-render when CACODE is different
+    return '' + nextProps.code !== '' + this.props.code
+  }
+
   highlightFeature(feature) {
     if (this.highlightedFeature) {
       this.featureOverlay.getSource().removeFeature(this.highlightedFeature)

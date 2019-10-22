@@ -20,7 +20,10 @@ import NavigateNextIcon from '@material-ui/icons/NavigateNext'
 import { UnstyledLink } from 'components/atoms/Link'
 import { Alert } from 'components/atoms/Alert'
 import { getDistrictOverviewUriFromTag, getParameterByName } from 'utils/helper'
-import { getAllFeaturesFromPoint } from 'utils/features'
+import {
+  getAllFeaturesFromPoint,
+  getCentroidFromYearAndCode,
+} from 'utils/features'
 import DCCAElectionHistories from 'components/templates/DCCAElectionHistories'
 
 const groupVoteStat = voteStats => {
@@ -32,8 +35,18 @@ const groupVoteStat = voteStats => {
   return data
 }
 
+// Use global window to store CACODE by browser Back/Forward
+window.gCode = ''
+window.onpopstate = function(event) {
+  window.gCode = window.location.href
+    .split('/')
+    .reverse()
+    .shift()
+}
+
 const Container = styled(Box)`
   && {
+    min-height: 170px;
     width: 100%;
     padding: 0 16px 0;
   }
@@ -54,15 +67,155 @@ const ToggleMapButton = styled(UnstyledButton)`
   }
 `
 
+const BattleHead = ({ tdata, year, code }) => {
+  if (Object.keys(tdata).length === 0) {
+    return null
+  }
+
+  const district = tdata.dcd_constituencies[0]
+  const DCCAStatus =
+    district.tags && district.tags.find(tag => tag.type === 'boundary')
+
+  return (
+    <>
+      <BreadcrumbsContainer>
+        <Breadcrumbs
+          separator={<NavigateNextIcon fontSize="small" />}
+          aria-label="breadcrumb"
+        >
+          <Typography color="textPrimary"> {year}</Typography>
+          <UnstyledLink
+            onClick={() => {
+              this.props.history.push(
+                getDistrictOverviewUriFromTag(district.district.dc_code)
+              )
+            }}
+          >
+            <Typography color="textPrimary">
+              {district.district.dc_name_zh}
+            </Typography>
+          </UnstyledLink>
+          <Typography color="primary" style={{ fontWeight: 600 }}>
+            {district.name_zh}（{code}）
+          </Typography>
+        </Breadcrumbs>
+      </BreadcrumbsContainer>
+      {DCCAStatus && (
+        <Alert>
+          <Typography variant="h6" gutterBottom>
+            {DCCAStatus.tag === '改劃界'
+              ? `此選區於2019年更改劃界`
+              : `此選區為2019年${DCCAStatus.tag}`}
+          </Typography>
+        </Alert>
+      )}
+      <Container>
+        <CandidatesContainer year={year} code={district.code} />
+      </Container>
+      <DCCAOverview
+        year={year}
+        name_zh={district.name_zh}
+        dc_code={district.district.dc_code}
+        dc_name_zh={district.district.dc_name_zh}
+        code={district.code}
+        tags={district.tags}
+        voterData={groupVoteStat(district.vote_stats)}
+      />
+    </>
+  )
+}
+
+const BattleMap = ({
+  year,
+  code,
+  showMap,
+  handleShowMap,
+  handleChangeDistrict,
+  handleMapClick,
+  handleMapLoaded,
+}) => {
+  return (
+    <>
+      {/* TODO Refactor style for ToggleMap Button */}
+      <ToggleMapButton onClick={handleShowMap}>
+        {showMap ? '隱藏地圖' : '顯示地圖'}
+        {showMap ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+      </ToggleMapButton>
+      <Collapse in={showMap}>
+        <Box width={'100%'} height={{ sm: '300px', md: '400px' }}>
+          <DCCACompareMap
+            year={year}
+            code={code}
+            changeDistrict={handleChangeDistrict}
+            handleMapClick={handleMapClick}
+            handleMapLoaded={handleMapLoaded}
+          />
+        </Box>
+      </Collapse>
+    </>
+  )
+}
+
+const BattleTail = ({ tdata, presetTabIndex, pointHistory }) => {
+  if (Object.keys(tdata).length === 0) {
+    return null
+  }
+
+  const district = tdata.dcd_constituencies[0]
+  const previousDistricts = district.predecessors.filter(
+    district =>
+      district.intersect_area === null || district.intersect_area > 1000
+  )
+
+  const DCCAStatus =
+    district.tags && district.tags.find(tag => tag.type === 'boundary')
+
+  return (
+    <>
+      <MainAreas areas={district.main_areas || []} />
+
+      {DCCAStatus && (
+        <Container>
+          <Typography variant="h6">
+            {DCCAStatus.tag === '改劃界'
+              ? `此選區於2019年更改劃界`
+              : `此選區為2019年${DCCAStatus.tag}`}
+          </Typography>
+        </Container>
+      )}
+      <DCCAElectionHistories
+        histories={pointHistory}
+        presetTabIndex={presetTabIndex}
+      />
+      <PlainCard>
+        <Typography variant="h6">現任區議員</Typography>
+        {previousDistricts.length > 1 && (
+          <Typography variant="h6">{`此區與上屆${previousDistricts.length}個選區重疊`}</Typography>
+        )}
+        {previousDistricts.map((d, index) => (
+          <CouncillorContainer
+            key={index}
+            year={2015}
+            code={d.predecessor.code}
+          />
+        ))}
+      </PlainCard>
+    </>
+  )
+}
+
 class BattleGroundPage extends Component {
   constructor(props) {
     super(props)
     this.state = {
       showMap: true,
       currentPoint: {
-        lng: 114.17056164035003,
-        lat: 22.312613750860297,
+        // lng: 114.17056164035003,
+        // lat: 22.312613750860297,
       },
+      tdata: {},
+      year: parseInt(props.match.params.year, 10) || 2019,
+      code: props.match.params.code,
     }
   }
 
@@ -71,9 +224,11 @@ class BattleGroundPage extends Component {
     return true
   }
 
+  handleShowMap = () => this.setState({ showMap: !this.state.showMap })
+
   handleChangeDistrict = (year, code) => {
-    if (!year || !code) return
-    this.props.history.push(`/district/${year}/${code}`)
+    // if (!year || !code) return
+    // this.props.history.push(`/district/${year}/${code}`)
   }
 
   handleMapClick = coordinate => {
@@ -81,8 +236,27 @@ class BattleGroundPage extends Component {
       lng: coordinate[0],
       lat: coordinate[1],
     }
+    let year, code
 
-    this.setState({ currentPoint: point })
+    let pointHistory = getAllFeaturesFromPoint(point)
+
+    pointHistory
+      .filter(history => history.year === '2019')
+      .map((history, index) => {
+        year = parseInt(history.year, 10)
+        code = history.CACODE
+      })
+
+    window.history.pushState(
+      { year: year, code: code },
+      year,
+      `/district/${year}/${code}`
+    )
+    this.setState({ currentPoint: point, year: year, code: code })
+
+    // User click on Map, use the coordinates.
+    // Forget the CACODE by URL when Back/Forward
+    window.gCode = null
   }
 
   handleMapLoaded = props => {
@@ -129,7 +303,11 @@ class BattleGroundPage extends Component {
 
     return (
       <>
-        <Query query={QUERY_CONSTITUENCIES} variables={{ year, code }}>
+        <Query
+          query={QUERY_CONSTITUENCIES}
+          variables={{ year, code }}
+          onCompleted={tdata => this.setState({ tdata: tdata })}
+        >
           {({ loading, error, data }) => {
             if (loading) return null
             if (error) return `Error! ${error}`
@@ -140,8 +318,15 @@ class BattleGroundPage extends Component {
                 district.intersect_area > 1000
             )
 
+            // (First entrance) CACODE by URL or User click on Map
+            const centroid = getCentroidFromYearAndCode(year, code)
             const pointHistory = getAllFeaturesFromPoint(
-              this.state.currentPoint
+              Object.keys(this.state.currentPoint).length === 0
+                ? {
+                    lng: centroid[0],
+                    lat: centroid[1],
+                  }
+                : this.state.currentPoint
             )
 
             const DCCAStatus =
@@ -150,97 +335,56 @@ class BattleGroundPage extends Component {
 
             return (
               <>
-                <BreadcrumbsContainer>
-                  <Breadcrumbs
-                    separator={<NavigateNextIcon fontSize="small" />}
-                    aria-label="breadcrumb"
-                  >
-                    <Typography color="textPrimary"> {year}</Typography>
-                    <UnstyledLink
-                      onClick={() => {
-                        this.props.history.push(
-                          getDistrictOverviewUriFromTag(
-                            district.district.dc_code
-                          )
-                        )
-                      }}
-                    >
-                      <Typography color="textPrimary">
-                        {district.district.dc_name_zh}
-                      </Typography>
-                    </UnstyledLink>
-                    <Typography color="primary" style={{ fontWeight: 600 }}>
-                      {district.name_zh}（{code}）
-                    </Typography>
-                  </Breadcrumbs>
-                </BreadcrumbsContainer>
-                {DCCAStatus && (
-                  <Alert>
-                    <Typography variant="h6" gutterBottom>
-                      {DCCAStatus.tag === '改劃界'
-                        ? `此選區於2019年更改劃界`
-                        : `此選區為2019年${DCCAStatus.tag}`}
-                    </Typography>
-                  </Alert>
-                )}
-                <Container>
-                  <CandidatesContainer year={year} code={district.code} />
-                </Container>
-                <DCCAOverview
-                  year={year}
-                  name_zh={district.name_zh}
-                  dc_code={district.district.dc_code}
-                  dc_name_zh={district.district.dc_name_zh}
-                  code={district.code}
-                  tags={district.tags}
-                  voterData={groupVoteStat(district.vote_stats)}
-                />
-                {/* TODO Refactor style for ToggleMap Button */}
-                <ToggleMapButton
-                  onClick={() => this.setState({ showMap: !showMap })}
-                >
-                  {showMap ? '隱藏地圖' : '顯示地圖'}
-                  {showMap ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </ToggleMapButton>
-                <Collapse in={showMap}>
-                  <Box width={'100%'} height={{ sm: '300px', md: '400px' }}>
-                    <DCCACompareMap
-                      year={year}
-                      code={code}
-                      changeDistrict={this.handleChangeDistrict}
-                      handleMapClick={this.handleMapClick}
-                      handleMapLoaded={this.handleMapLoaded}
-                    />
-                  </Box>
-                </Collapse>
-                <MainAreas areas={district.main_areas || []} />
+                {pointHistory
+                  .filter(history => history.year === '2019')
+                  .map((history, index) => {
+                    let year = parseInt(history.year, 10)
+                    let code = history.CACODE
 
-                {DCCAStatus && (
-                  <Container>
-                    <Typography variant="h6">
-                      {DCCAStatus.tag === '改劃界'
-                        ? `此選區於2019年更改劃界`
-                        : `此選區為2019年${DCCAStatus.tag}`}
-                    </Typography>
-                  </Container>
-                )}
-                <DCCAElectionHistories
-                  histories={pointHistory}
-                  presetTabIndex={presetTabIndex}
+                    return (
+                      <Query
+                        query={QUERY_CONSTITUENCIES}
+                        variables={{ year, code }}
+                        onCompleted={tdata =>
+                          this.setState({
+                            tdata: tdata,
+                            year: year,
+                            code: code,
+                          })
+                        }
+                      >
+                        {({ loading, error, data }) => {
+                          if (loading) return null
+                          if (error) return `Error! ${error}`
+                          return null
+                        }}
+                      </Query>
+                    )
+                  })}
+                {/*
+                Note:
+                window.gCode => CACODE by URL browser Back/Forward
+                this.state.code => User click on Map
+              */}
+                <BattleHead
+                  tdata={this.state.tdata}
+                  year={this.state.year}
+                  code={window.gCode || this.state.code}
                 />
-                <PlainCard>
-                  <Typography variant="h6">現任區議員</Typography>
-                  {previousDistricts.length > 1 && (
-                    <Typography variant="h6">{`此區與上屆${previousDistricts.length}個選區重疊`}</Typography>
-                  )}
-                  {previousDistricts.map((d, index) => (
-                    <CouncillorContainer
-                      key={index}
-                      year={2015}
-                      code={d.predecessor.code}
-                    />
-                  ))}
-                </PlainCard>
+                <BattleMap
+                  year={this.state.year}
+                  code={window.gCode || this.state.code}
+                  showMap={this.state.showMap}
+                  handleShowMap={this.handleShowMap}
+                  handleChangeDistrict={this.handleChangeDistrict}
+                  handleMapClick={this.handleMapClick}
+                  handleMapLoaded={this.handleMapLoaded}
+                />
+                <BattleTail
+                  tdata={this.state.tdata}
+                  presetTabIndex={presetTabIndex}
+                  pointHistory={pointHistory}
+                />
               </>
             )
           }}

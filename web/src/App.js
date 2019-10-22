@@ -25,6 +25,7 @@ import ContextStore, { drawerInitialState } from 'ContextStore'
 import withTracker from './WithTracker'
 import SearchDrawer from 'components/pages/SearchDrawer'
 import DistrictOverviewPage from 'components/pages/district/overview'
+import createHistory from 'history/createBrowserHistory'
 
 const client = new ApolloClient({
   uri: process.env.REACT_APP_GRAPHQL_URI,
@@ -36,6 +37,8 @@ const useStyles = makeStyles(theme => ({
     maxWidth: '100%',
   },
 }))
+
+const history = createHistory()
 
 const Root = styled(Box)`
   && {
@@ -94,7 +97,7 @@ const App = props => {
               <Wrapper>
                 <MobileAppBar />
                 <main>
-                  <Switch>
+                  <Switch history={history}>
                     <Route exact path="/" component={withTracker(IndexPage)} />
                     <Route
                       path="/profile/:name/:uuid"
